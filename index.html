@@ -1,0 +1,68 @@
+<!doctype html> 
+<html>
+    <head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Plinko Game</title>
+
+		<link
+			rel="apple-touch-icon"
+			sizes="180x180"
+			href="./favicon/apple-touch-icon.png"
+		/>
+		<link
+			rel="icon"
+			type="image/png"
+			sizes="32x32"
+			href="./favicon/favicon-32x32.png"
+		/>
+		<link
+			rel="icon"
+			type="image/png"
+			sizes="16x16"
+			href="./favicon/favicon-16x16.png"
+		/>
+		<link rel="manifest" href="./favicon/site.webmanifest" />
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@160..700&display=swap"
+			rel="stylesheet"
+		/>
+
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+		/>
+		<link rel="stylesheet" href="styles.css" />
+		<script
+			defer
+			src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+		></script>
+		<script
+			defer
+			src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+		></script>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+		/>
+	</head>
+    <body>
+        <!-- <button class="edit-btn">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        <section class="page">
+            <h2 class="title">Answer to have a chance at winning!</h2>
+            <button class="action-btn">Start</button>
+        </section> -->
+        <section class="page game-page">
+            <button class="action-btn" onclick="startGame()">Start</button>
+            <canvas class="plinko-board" id="board">
+
+            </canvas>
+        </section>
+        <script src="script.js" ></script>
+    </body>
+</html>
