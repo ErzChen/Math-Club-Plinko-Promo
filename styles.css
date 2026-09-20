@@ -65,6 +65,10 @@ body {
     transform: translateZ(-150000px);
 }
 
+.fly-back-start {
+    transform: translateZ(10000px);
+}
+
 /* ------- Main Page ------- */
 
 .edit-btn {
@@ -103,7 +107,10 @@ body {
         url(images/background.jpeg) 
         no-repeat center;
     background-size: 100%;
-    transition: background-size 0.6s ease;
+    transition:
+        background-size 0.6s ease,
+        transform 5s cubic-bezier(0.7, 0, 0.15, 1),
+        opacity 0.6s ease;
 }
 
 body:not(.is-transitioning) .main-page:has(.btn:hover) {
@@ -193,6 +200,10 @@ body:not(.is-transitioning) .main-page:has(.btn:hover) {
 .modal-head h2 {
 	margin: 0;
 	font-size: 20px;
+}
+
+#winTitle {
+    font-size: 20px;
 }
 
 .field-label {
@@ -463,24 +474,64 @@ body:not(.is-transitioning) .main-page:has(.btn:hover) {
     color: var(--chalk-teal);
 }
 
+.question-img {
+    max-width: 100%;
+    max-height: 40vh;
+    border-radius: var(--radius-small);
+    display: block;
+}
+
+.question-answer {
+    border: none;
+    border-bottom: solid 4px var(--primary-text);
+    color: var(--primary-text);
+    outline: none;
+    font-size: 2rem;
+    text-align: center;
+    background-color: transparent;
+}
+
+.feedback-area {
+    display: none;
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+}
+
+.feedback-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0 0 8px;
+}
+
+.feedback.correct .feedback-title {
+    color: var(--chalk-teal);
+}
+
+.feedback.incorrect .feedback-title {
+    color: #f15;
+}
+
+.feedback-answer,
+.feedback-explanation {
+    color: var(--primary-text);
+    font-size: 1rem;
+    line-height: 1.5;
+    margin: 6px 0;
+}
+
+.feedback-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+}
+
 /* ------- Game Page ------- */
 
 .action-btn {
     position: absolute;
     top: 25px;
-    background-color: var(--primary-text);
-	color: #000;
-	border: 1px solid var(--line);
-	border-radius: 10px;
-	padding: 9px 18px;
-	font-size: 1rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition:
-		transform 0.3s ease,
-		border-color 0.3s ease,
-		background-color 0.3s ease;
-	letter-spacing: 0.01em;
 }
 
 .plinko-board {

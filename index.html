@@ -59,28 +59,40 @@
             <img src="images/plinko-icon.png" alt="plinko-icon" class="plinko-icon"/>
             <button class="btn main-btn" onclick="nextPage(event)">Start</button>
         </section>
-        <section class="page question-page" id="page1">
-            <h2 class="title">What grade level math are you taking?</h2>
-            <div class="grade-select">
-                <button class="grade-card" onclick="loadQuestion(9)">9th</button>
-                <button class="grade-card" onclick="loadQuestion(10)">10th</button>
-                <button class="grade-card" onclick="loadQuestion(11)">11th</button>
-                <button class="grade-card" onclick="loadQuestion(12)">12th</button>
+        <section class="page" id="page1">
+            <div class="page question-page active" id="questionSelect">
+                <h2 class="title">What grade level math are you taking?</h2>
+                <div class="grade-select">
+                    <button class="grade-card" onclick="loadQuestion(9)">9th</button>
+                    <button class="grade-card" onclick="loadQuestion(10)">10th</button>
+                    <button class="grade-card" onclick="loadQuestion(11)">11th</button>
+                    <button class="grade-card" onclick="loadQuestion(12)">12th</button>
+                </div>
+            </div>
+            <div class="page question-page" id="questionPage">  
+                <h2 class="title" id="questionText"></h2>
+                <img id="questionImg" class="question-img" style="display: none;" alt="" />
+                <input type="text" placeholder="Type your answer here..." class="question-answer" id="questionAnswer"/>
+                <div id="feedbackArea" class="feedback-area"></div>
+                <div id="questionControls">
+                    <button class="btn" id="backBtn" onclick="backQuestionSelect()">Back</button>
+                    <button class="btn" id="submitBtn" onclick="submitAnswer()">Submit</button>
+                </div>
             </div>
         </section>
-        <!-- <section class="page game-page" id="page2">
-            <button class="action-btn" onclick="startGame()">Start</button>
+        <section class="page game-page" id="page2">
+            <button class="action-btn btn" onclick="startGame()" id="startBtn">Start</button>
             <canvas class="plinko-board" id="board"></canvas>
-        </section> -->
+        </section>
         <div class="modal-overlay" id="modalOverlay">
-			<div class="modal-box">
+			<div class="modal-box" style="width: 50%;">
 				<div class="modal-head">
-					<h2 id="modalTitle">Manage Questions</h2>
+					<h2>Manage Questions</h2>
 					<button class="btn" style="padding: 9px 13px;" onclick="closeQuestionManager()">
 						<i class="fa-solid fa-xmark"></i>
 					</button>
 				</div>
-				<div id="modalBody">
+				<div>
                     <div class="field-label">Grade Level (9 - 12)</div>
                     <input type="text" id="newGrade" placeholder="e.g. 10">
 
@@ -90,20 +102,36 @@
                     <div class="field-label">Question image (optional)</div>
                     <div id="newQuestionImgWrap">
                         <div class="img-upload-row">
-                            <input type="file" id="newQuestionImgFile" accept="image/*">
+                            <input type="file" accept="image/*">
                         </div>
                     </div>
 
                     <div class="field-label">Answer</div>
                     <input type="text" id="newAnswer" placeholder="e.g. 15">
+
+                    <div class="field-label">Explanation</div>
+                    <textarea id="newExplanation" placeholder="Show the reasoning."></textarea>
                 </div>
 
                 <button class="btn" style="margin-top: 12px;" onclick="addCustomQuestion()">Add Question</button>
 
                 <div class="field-label" style="margin-top: 22px;">Your custom questions</div>
-                <div id="customLadderList"></div>
+                <div id="customQuestionsList"></div>
 			</div>
 		</div>
+        <div class="modal-overlay" id="winOverlay">
+            <div class="modal-box" style="position: relative;">
+                <div class="modal-head" style="margin: 0; display: flex; justify-content: flex-end;">
+                    <button class="btn" style="padding: 9px 13px; position: absolute; top: 20px; right: 20px;" onclick="closeWinModal()">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div style="text-align: center;">
+                    <h2 id="winTitle" style="margin: 0 0 10px 0;">Test</h2>
+                    <div id="winAmount">test</div>
+                </div>
+            </div>
+        </div>
         <script src="script.js" ></script>
     </body>
 </html>

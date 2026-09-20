@@ -2,20 +2,54 @@
 const TRANSITION_MS = 5000; 
 let isTransitioning = false;
 
-function nextPage(event) {
+function transitionToPage(next, { reverse = false } = {}) {
     if (isTransitioning) return;
+
+    const current = document.querySelector('section.page.active');
+    if (!current || current === next) return;
+
     isTransitioning = true;
     document.body.classList.add('is-transitioning');
 
-    const allPages = Array.from(document.querySelectorAll('.page'));
-    const currentIndex = allPages.findIndex(page => page.classList.contains('active'));
-    if (currentIndex === allPages.length - 1) {
-        isTransitioning = false;
-        return console.error('Last Page!');
-    }
+    if (reverse) {
+        next.style.transition = 'none';
+        next.classList.add('fly-back-start');
+        next.classList.add('active');
+        next.getBoundingClientRect();
+        next.style.transition = '';
 
-    const current = allPages[currentIndex];
-    const next = document.getElementById(`page${currentIndex + 1}`);
+        current.style.zIndex = 3;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                next.classList.remove('fly-back-start');
+
+                const anim = current.animate(
+                    [
+                        { transform: 'translateZ(0px)' },
+                        { transform: 'translateZ(-150000px)' }
+                    ],
+                    {
+                        duration: TRANSITION_MS,
+                        easing: 'cubic-bezier(0.7, 0, 0.15, 1)',
+                        fill: 'forwards'
+                    }
+                );
+
+                anim.onfinish = () => {
+                    current.classList.remove('active');
+                    setTimeout(() => {
+                        current.style.transform = '';
+                        current.style.zIndex = '';
+                        anim.cancel();
+                        isTransitioning = false;
+                        document.body.classList.remove('is-transitioning');
+                    }, 600);
+                };
+            });
+        });
+        return;
+    }
 
     next.style.transition = 'none';
     next.classList.add('fly-in-start');
@@ -42,13 +76,26 @@ function nextPage(event) {
 
             anim.onfinish = () => {
                 current.classList.remove('active');
-                current.style.transform = '';
-                current.style.zIndex = '';
-                isTransitioning = false;
-                document.body.classList.remove('is-transitioning');
+                setTimeout(() => {
+                    current.style.transform = '';
+                    current.style.zIndex = '';
+                    anim.cancel();
+                    isTransitioning = false;
+                    document.body.classList.remove('is-transitioning');
+                }, 600);
             };
         });
     });
+}
+
+function nextPage(event) {
+    const allPages = Array.from(document.querySelectorAll('section.page'));
+    const currentIndex = allPages.findIndex(page => page.classList.contains('active'));
+    if (currentIndex === allPages.length - 1) {
+        return console.error('Last Page!');
+    }
+    const next = document.getElementById(`page${currentIndex + 1}`);
+    transitionToPage(next);
 }
 
 const modalOverlay = document.getElementById('modalOverlay');
@@ -62,13 +109,6 @@ function closeQuestionManager() {
 }
 
 let questions = [];
-
-function escapeHtml(string) {
-	return String(string)
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;');
-}
 
 function typeset(element) {
 	if (window.renderMathInElement && element) {
@@ -218,19 +258,19 @@ function renderImgUploadField(wrapId, imgData, onChange) {
 	}
 }
 
-const ladderImageFields = {
-	state: { q: null },
-	render() {
-		renderImgUploadField('newQuestionImgWrap', this.state.q, (val) => {
-			this.state.q = val;
-			this.render();
-		});
-	},
-	reset() {
-		this.state.q = null;
-		this.render();
-	},
-};
+let newQuestionImg = null;
+
+function renderQuestionImageField() {
+	renderImgUploadField('newQuestionImgWrap', newQuestionImg, (val) => {
+		newQuestionImg = val;
+		renderQuestionImageField();
+	});
+}
+
+function resetQuestionImageField() {
+	newQuestionImg = null;
+	renderQuestionImageField();
+}
 
 function saveQuestions() {
 	try {
@@ -252,6 +292,7 @@ function addCustomQuestion() {
 	);
 	const question = document.getElementById('newQuestion').value.trim();
 	const answer = document.getElementById('newAnswer').value.trim();
+	const explanation = document.getElementById('newExplanation').value.trim();
 	if (!question || !answer) {
 		alert('Enter at least a question and an answer.');
 		return;
@@ -259,25 +300,27 @@ function addCustomQuestion() {
 	questions.push({
 		grade,
 		q: question,
-		qImg: ladderImageFields.state.q || undefined,
+		qImg: newQuestionImg || undefined,
 		a: answer,
+		e: explanation || undefined,
 	});
 	document.getElementById('newGrade').value = '';
 	document.getElementById('newQuestion').value = '';
 	document.getElementById('newAnswer').value = '';
-	ladderImageFields.reset();
+	document.getElementById('newExplanation').value = '';
+	resetQuestionImageField();
 	saveQuestions();
-	renderCustomLadderList();
+	renderQuestionList();
 }
 
-function deleteCustomLadder(i) {
+function deleteQuestion(i) {
 	questions.splice(i, 1);
 	saveQuestions();
-	renderCustomLadderList();
+	renderQuestionList();
 }
 
-function renderCustomLadderList() {
-	const list = document.getElementById('customLadderList');
+function renderQuestionList() {
+	const list = document.getElementById('customQuestionsList');
 	if (!list) return;
 	if (questions.length === 0) {
 		list.innerHTML =
@@ -285,14 +328,14 @@ function renderCustomLadderList() {
 		return;
 	}
 	list.innerHTML = questions
-		.map((problem, i) => {
-			const img = normalizeImgData(problem.qImg);
+		.map((question, i) => {
+			const img = normalizeImgData(question.qImg);
 			const dims = img && img.width && img.height ? ` (${img.width}×${img.height}px)` : '';
 			return `
 		<div class="custom-list-item">
 			${img ? `<img class="thumb" src="${img.src}" />` : ''}
-			<div class="txt"><b>Grade ${problem.grade}</b> — ${escapeHtml(problem.q)}${img ? `<span class="dims">${dims}</span>` : ''}<br>${escapeHtml(problem.a)}</div>
-			<button class="btn small ghost" onclick="deleteCustomLadder(${i})">Delete</button>
+			<div class="txt"><b>Grade ${question.grade}</b> — ${question.q}${img ? `<span class="dims">${dims}</span>` : ''}<br>${question.a}${question.e ? `<br><span class="dims">Explanation: ${question.e}</span>` : ''}</div>
+			<button class="btn small ghost" onclick="deleteQuestion(${i})">Delete</button>
 		</div>
 	`;
 		})
@@ -301,205 +344,367 @@ function renderCustomLadderList() {
 }
 
 loadQuestions();
-ladderImageFields.render();
-renderCustomLadderList();
+renderQuestionImageField();
+renderQuestionList();
+
+// QUESTION PAGE   
+
+const questionSelect = document.getElementById('questionSelect');
+const questionPage = document.getElementById('questionPage');
+const questionText = document.getElementById('questionText');
+const questionImg = document.getElementById('questionImg');
+const questionAnswerInput = document.getElementById('questionAnswer');
+const feedbackArea = document.getElementById('feedbackArea');
+const submitBtn = document.getElementById('submitBtn');
+const backBtn = document.getElementById('backBtn');
+let question = [];
+let currentGrade = null;
+
+function pickRandomQuestion(grade) {
+    const gradeQuestions = questions.filter(q => q.grade == grade);
+    if (gradeQuestions.length === 0) return null;
+    return gradeQuestions[Math.floor(Math.random() * gradeQuestions.length)];
+}
+
+function resetQuestionUI() {
+    feedbackArea.style.display = 'none';
+    feedbackArea.innerHTML = '';
+    questionAnswerInput.value = '';
+    questionAnswerInput.disabled = false;
+    submitBtn.style.display = '';
+    backBtn.style.display = '';
+}
+
+function loadQuestion(grade) {
+    const picked = pickRandomQuestion(grade);
+    if (!picked) {
+        alert('No questions for that grade yet — add some first!');
+        return;
+    }
+    currentGrade = grade;
+    question = picked;
+    questionSelect.classList.remove('active');
+    questionPage.classList.add('active');
+    resetQuestionUI();
+    questionText.textContent = question.q;
+    typeset(questionText);
+
+    const img = normalizeImgData(question.qImg);
+    if (img) {
+        questionImg.src = img.src;
+        questionImg.style.width = img.width ? `${img.width}px` : '';
+        questionImg.style.height = img.height ? `${img.height}px` : '';
+        questionImg.style.display = '';
+    } else {
+        questionImg.removeAttribute('src');
+        questionImg.style.display = 'none';
+    }
+}
+
+function backQuestionSelect() {
+    questionSelect.classList.add('active');
+    questionPage.classList.remove('active');
+    question = [];
+    currentGrade = null;
+    questionText.textContent = '';
+    questionImg.removeAttribute('src');
+    questionImg.style.display = 'none';
+    resetQuestionUI();
+}
+
+function goHome() {
+    transitionToPage(document.getElementById('page0'), { reverse: true });
+    backQuestionSelect();
+}
+
+function submitAnswer() {
+    const given = questionAnswerInput.value.trim();
+    if (!given) return;
+
+    const isCorrect = given.toLowerCase() === String(question.a).trim().toLowerCase();
+
+    questionAnswerInput.disabled = true;
+    submitBtn.style.display = 'none';
+    backBtn.style.display = 'none';
+
+    if (isCorrect) {
+        feedbackArea.innerHTML = `
+            <div class="feedback correct">
+                <p class="feedback-title">Correct!</p>
+                <div class="feedback-actions">
+                    <button class="btn" id="nextBtn">Next</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('nextBtn').onclick = () => {
+            nextPage();
+            setTimeout(backQuestionSelect, TRANSITION_MS + 600);
+        };
+    } else {
+        feedbackArea.innerHTML = `
+            <div class="feedback incorrect">
+                <p class="feedback-title">Not quite.</p>
+                <p class="feedback-answer">Correct answer: <b>${question.a}</b></p>
+                ${question.e ? `<p class="feedback-explanation">${question.e}</p>` : ''}
+                <div class="feedback-actions">
+                    <button class="btn" id="tryAgainBtn">Try Again</button>
+                    <button class="btn" id="homeBtn">Home</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('tryAgainBtn').onclick = () => loadQuestion(currentGrade);
+        document.getElementById('homeBtn').onclick = () => goHome();
+    }
+
+    feedbackArea.style.display = 'block';
+    typeset(feedbackArea);
+}
+
+questionAnswerInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') submitAnswer();
+});
 
 // PLINKO GAME
 
+const winOverlay = document.getElementById('winOverlay');
+const winTitle = document.getElementById('winTitle');
+const winAmount = document.getElementById('winAmount');
+
+function openWinModal(amount) {
+    winOverlay.classList.add('open');
+    winTitle.textContent = amount != 0 ? 'Winner!' : 'Better luck next time!';
+    winAmount.textContent = amount != 0 ? `You won ${amount == 1 ? 'a candy' : `${amount} candies`}!` : '';
+}
+
+function closeWinModal() {
+    winOverlay.classList.remove('open');
+    resetGame();
+    goHome();
+}
+
+let resetGame = () => {};
+
 const canvas = document.getElementById('board');
-canvas.width = canvas.clientWidth;
-canvas.height = canvas.clientHeight;
-const ctx = canvas.getContext('2d');
 
-const TOP_SPACE_PX = 200;
-const GAP_PX = 50;
-const PEG_RADIUS = 6;
-const START_PEGS = 5;
+if (canvas) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    const ctx = canvas.getContext('2d');
 
-const BALL_RADIUS = 10;
-const GRAVITY = 0.15;
-const BOUNCE_DAMPING = 0.75;
+    const TOP_SPACE_PX = 200;
+    const GAP_PX = 50;
+    const PEG_RADIUS = 6;
+    const START_PEGS = 5;
+    const MAX_AMOUNT = 3;
 
-let pegs = [];
-let boardLeft = 0;
-let boardRight = 0;
+    const BALL_RADIUS = 10;
+    const GRAVITY = 0.15;
+    const BOUNCE_DAMPING = 0.75;
 
-let slots = [];
-let slotPercents = [];
-let score = 0;
+    let pegs = [];
+    let boardLeft = 0;
+    let boardRight = 0;
 
-let ball = {};
+    let slots = [];
+    let slotAmounts = [];
+    let score = 0;
 
-function buildPegs() {
-    pegs = [];
-    const usableHeight = canvas.height - TOP_SPACE_PX - GAP_PX;
-    const rows = Math.floor(usableHeight / GAP_PX);
-    const maxColumns = Math.floor(canvas.width / GAP_PX);
+    let ball = {};
 
-    let maxRowWidth = 0;
+    function buildPegs() {
+        pegs = [];
+        const usableHeight = canvas.height - TOP_SPACE_PX - GAP_PX;
+        const rows = Math.floor(usableHeight / GAP_PX);
+        const maxColumns = Math.floor(canvas.width / GAP_PX);
 
-    for (let i = 0; i < rows; i++) {
-        const pegRow = [];
-        const y = i * GAP_PX + TOP_SPACE_PX;
+        let maxRowWidth = 0;
 
-        const countInRow = Math.min(START_PEGS + i, maxColumns);
-        const rowWidth = (countInRow - 1) * GAP_PX;
-        maxRowWidth = Math.max(maxRowWidth, rowWidth);
+        for (let i = 0; i < rows; i++) {
+            const pegRow = [];
+            const y = i * GAP_PX + TOP_SPACE_PX;
 
-        const startX = (canvas.width - rowWidth) / 2;
+            const countInRow = Math.min(START_PEGS + i, maxColumns);
+            const rowWidth = (countInRow - 1) * GAP_PX;
+            maxRowWidth = Math.max(maxRowWidth, rowWidth);
 
-        for (let j = 0; j < countInRow; j++) {
-            pegRow.push([startX + j * GAP_PX, y]);
+            const startX = (canvas.width - rowWidth) / 2;
+
+            for (let j = 0; j < countInRow; j++) {
+                pegRow.push([startX + j * GAP_PX, y]);
+            }
+            pegs.push(pegRow);
         }
-        pegs.push(pegRow);
+
+        boardLeft = (canvas.width - maxRowWidth - GAP_PX) / 2;
+        boardRight = boardLeft + maxRowWidth + GAP_PX;
     }
 
-    boardLeft = (canvas.width - maxRowWidth - GAP_PX) / 2;
-    boardRight = boardLeft + maxRowWidth + GAP_PX;
-}
-
-function drawPegs(ctx) {
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(boardLeft, 0);
-    ctx.lineTo(boardLeft, canvas.height);
-    ctx.moveTo(boardRight, 0);
-    ctx.lineTo(boardRight, canvas.height);
-    ctx.stroke();
-
-    ctx.fillStyle = '#ccc';
-    for (const row of pegs) {
-        for (const [x, y] of row) {
-            ctx.beginPath();
-            ctx.arc(x, y, PEG_RADIUS, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-}
-
-function buildSlots() {
-    slots = [];
-    for (let i = 0; i < pegs[pegs.length - 1].length; i++) {
-        slots.push({ left: boardLeft + i * GAP_PX, right: boardLeft + (i + 1) * GAP_PX });
-    }
-
-    const mid = (slots.length - 1) / 2;
-    slotPercents = slots.map((_, i) => Math.round(Math.abs(i - mid)) / mid);
-}
-
-function drawSlots(ctx) {
-    const bottomRowY = pegs[pegs.length - 1][0][1];
-    const top = bottomRowY + GAP_PX / 2;
-
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 4;
-    for (let i = 1; i < slots.length; i++) {
+    function drawPegs(ctx) {
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(slots[i].left, top);
-        ctx.lineTo(slots[i].left, canvas.height);
+        ctx.moveTo(boardLeft, 0);
+        ctx.lineTo(boardLeft, canvas.height);
+        ctx.moveTo(boardRight, 0);
+        ctx.lineTo(boardRight, canvas.height);
         ctx.stroke();
-    }
 
-    slots.forEach((slot, i) => {
-        const width = slot.right - slot.left;
-        const hue = 120 -  120 * (1 - slotPercents[i]);
-        ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-        ctx.fillRect(slot.left + ctx.lineWidth / 2, canvas.height - GAP_PX, GAP_PX - ctx.lineWidth, GAP_PX);
-    });
-}
-
-function checkSlotCollisions() {
-    const bottomRowY = pegs[pegs.length - 1][0][1];
-    const dividerTop = bottomRowY + GAP_PX / 2;
-
-    if (ball.y < dividerTop) return;
-
-    for (let i = 1; i < slots.length; i++) {
-        const dividerX = slots[i].left;
-        const dx = ball.x - dividerX;
-
-        if (Math.abs(dx) < BALL_RADIUS) {
-            ball.x = dividerX + Math.sign(dx || 1) * BALL_RADIUS;
-            ball.vx *= -BOUNCE_DAMPING;
-        }
-    }
-}
-
-function startGame() {
-    ball = {
-        x: canvas.width / 2,
-        y: TOP_SPACE_PX - GAP_PX,
-        vx: Math.random() - 0.5,
-        vy: 0
-    };
-}
-
-function updateBalls() {
-    ball.vy += GRAVITY;
-    ball.x += ball.vx;
-    ball.y += ball.vy;
-
-    if (ball.x - BALL_RADIUS < boardLeft) {
-        ball.x = boardLeft + BALL_RADIUS;
-        ball.vx *= -BOUNCE_DAMPING;
-    } else if (ball.x + BALL_RADIUS > boardRight) {
-        ball.x = boardRight - BALL_RADIUS;
-        ball.vx *= -BOUNCE_DAMPING;
-    }
-
-    for (const row of pegs) {
-        for (const [px, py] of row) {
-            const dx = ball.x - px;
-            const dy = ball.y - py;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const minDist = BALL_RADIUS + PEG_RADIUS;
-
-            if (dist < minDist) {
-                const overlap = minDist - dist;
-                const nx = dx / dist;
-                const ny = dy / dist;
-                ball.x += nx * overlap;
-                ball.y += ny * overlap;
-
-                const dot = ball.vx * nx + ball.vy * ny;
-                ball.vx -= 2 * dot * nx;
-                ball.vy -= 2 * dot * ny;
-
-                ball.vx = ball.vx * BOUNCE_DAMPING + (Math.random() - 0.5) / 2;
-                ball.vy *= BOUNCE_DAMPING;
+        ctx.fillStyle = '#ccc';
+        for (const row of pegs) {
+            for (const [x, y] of row) {
+                ctx.beginPath();
+                ctx.arc(x, y, PEG_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
     }
 
-    checkSlotCollisions();
-
-    if (ball.y + BALL_RADIUS > canvas.height - GAP_PX) {
-        const slotIndex = slots.findIndex(slot => ball.x >= slot.left && ball.x < slot.right);
-        if (slotIndex !== -1) {
-            console.log(`score: ${slotPercents[slotIndex]}`);
+    function buildSlots() {
+        slots = [];
+        for (let i = 0; i < pegs[pegs.length - 1].length; i++) {
+            slots.push({ left: boardLeft + i * GAP_PX, right: boardLeft + (i + 1) * GAP_PX });
         }
-        ball = {};
+
+        const mid = (slots.length - 1) / 2;
+        slotAmounts = slots.map((_, i) => {
+            const d = Math.abs(i - mid);
+            if (d === 0) return 0;
+            if (d === mid) return MAX_AMOUNT;
+            const scaled = Math.round((d / mid) * MAX_AMOUNT);
+            return Math.min(MAX_AMOUNT - 1, Math.max(1, scaled));
+        });
     }
-}
 
-function drawBalls(ctx) {
-    if (ball.x === undefined) return;
-    ctx.fillStyle = '#f15';
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-}
+    function drawSlots(ctx) {
+        const bottomRowY = pegs[pegs.length - 1][0][1];
+        const top = bottomRowY + GAP_PX / 2;
 
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawPegs(ctx);
-    drawSlots(ctx);
-    updateBalls();
-    drawBalls(ctx);
-    requestAnimationFrame(gameLoop);
-}
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 4;
+        for (let i = 1; i < slots.length; i++) {
+            ctx.beginPath();
+            ctx.moveTo(slots[i].left, top);
+            ctx.lineTo(slots[i].left, canvas.height);
+            ctx.stroke();
+        }
 
-buildPegs();
-buildSlots();
-gameLoop();
+        slots.forEach((slot, i) => {
+            const width = slot.right - slot.left;
+            const normalized = slotAmounts[i] / MAX_AMOUNT;
+            const hue = 120 * normalized;
+            ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+            ctx.fillRect(slot.left + ctx.lineWidth / 2, canvas.height - GAP_PX, GAP_PX - ctx.lineWidth, GAP_PX);
+
+            ctx.fillStyle = '#000';
+            ctx.font = "bold 14px 'Readex Pro', system-ui, sans-serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const label = `${slotAmounts[i]}`;
+            ctx.fillText(label, slot.left + width / 2, canvas.height - GAP_PX / 2);
+        });
+    }
+
+    function checkSlotCollisions() {
+        const bottomRowY = pegs[pegs.length - 1][0][1];
+        const dividerTop = bottomRowY + GAP_PX / 2;
+
+        if (ball.y < dividerTop) return;
+
+        for (let i = 1; i < slots.length; i++) {
+            const dividerX = slots[i].left;
+            const dx = ball.x - dividerX;
+
+            if (Math.abs(dx) < BALL_RADIUS) {
+                ball.x = dividerX + Math.sign(dx || 1) * BALL_RADIUS;
+                ball.vx *= -BOUNCE_DAMPING;
+            }
+        }
+    }
+
+    const startBtn = document.getElementById('startBtn');
+
+    function startGame() {
+        startBtn.style.display = 'none';
+        ball = {
+            x: canvas.width / 2,
+            y: TOP_SPACE_PX - GAP_PX,
+            vx: Math.random() - 0.5,
+            vy: 0
+        };
+    }
+
+    function updateBalls() {
+        ball.vy += GRAVITY;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        if (ball.x - BALL_RADIUS < boardLeft) {
+            ball.x = boardLeft + BALL_RADIUS;
+            ball.vx *= -BOUNCE_DAMPING;
+        } else if (ball.x + BALL_RADIUS > boardRight) {
+            ball.x = boardRight - BALL_RADIUS;
+            ball.vx *= -BOUNCE_DAMPING;
+        }
+
+        for (const row of pegs) {
+            for (const [px, py] of row) {
+                const dx = ball.x - px;
+                const dy = ball.y - py;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = BALL_RADIUS + PEG_RADIUS;
+
+                if (dist < minDist) {
+                    const overlap = minDist - dist;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    ball.x += nx * overlap;
+                    ball.y += ny * overlap;
+
+                    const dot = ball.vx * nx + ball.vy * ny;
+                    ball.vx -= 2 * dot * nx;
+                    ball.vy -= 2 * dot * ny;
+
+                    ball.vx = ball.vx * BOUNCE_DAMPING + (Math.random() - 0.5) / 2;
+                    ball.vy *= BOUNCE_DAMPING;
+                }
+            }
+        }
+
+        checkSlotCollisions();
+
+        if (ball.y + BALL_RADIUS > canvas.height - GAP_PX) {
+            const slotIndex = slots.findIndex(slot => ball.x >= slot.left && ball.x < slot.right);
+            if (slotIndex !== -1) {
+                score += slotAmounts[slotIndex];
+                openWinModal(slotAmounts[slotIndex]);
+            }
+            ball = {};
+        }
+    }
+
+    function drawBalls(ctx) {
+        if (ball.x === undefined) return;
+        ctx.fillStyle = '#f15';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawPegs(ctx);
+        drawSlots(ctx);
+        updateBalls();
+        drawBalls(ctx);
+        requestAnimationFrame(gameLoop);
+    }
+
+    resetGame = () => {
+        ball = {};
+        startBtn.style.display = '';
+    };
+
+    buildPegs();
+    buildSlots();
+    gameLoop();
+}
