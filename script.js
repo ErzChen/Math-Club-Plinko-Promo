@@ -1,3 +1,311 @@
+// CORE
+const TRANSITION_MS = 5000; 
+let isTransitioning = false;
+
+function nextPage(event) {
+    if (isTransitioning) return;
+    isTransitioning = true;
+    document.body.classList.add('is-transitioning');
+
+    const allPages = Array.from(document.querySelectorAll('.page'));
+    const currentIndex = allPages.findIndex(page => page.classList.contains('active'));
+    if (currentIndex === allPages.length - 1) {
+        isTransitioning = false;
+        return console.error('Last Page!');
+    }
+
+    const current = allPages[currentIndex];
+    const next = document.getElementById(`page${currentIndex + 1}`);
+
+    next.style.transition = 'none';
+    next.classList.add('fly-in-start');
+    next.classList.add('active');
+    next.getBoundingClientRect();
+    next.style.transition = '';
+
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            next.classList.remove('fly-in-start');
+
+            current.style.zIndex = 3;
+            const anim = current.animate(
+                [
+                    { transform: 'translateZ(0px)' },
+                    { transform: 'translateZ(900px)' }
+                ],
+                {
+                    duration: TRANSITION_MS,
+                    easing: 'cubic-bezier(0.83, 0, 0.17, 1)', 
+                    fill: 'forwards'
+                }
+            );
+
+            anim.onfinish = () => {
+                current.classList.remove('active');
+                current.style.transform = '';
+                current.style.zIndex = '';
+                isTransitioning = false;
+                document.body.classList.remove('is-transitioning');
+            };
+        });
+    });
+}
+
+const modalOverlay = document.getElementById('modalOverlay');
+
+function openQuestionManager() {
+    modalOverlay.classList.add('open');
+}
+
+function closeQuestionManager() {
+    modalOverlay.classList.remove('open');
+}
+
+let questions = [];
+
+function escapeHtml(string) {
+	return String(string)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;');
+}
+
+function typeset(element) {
+	if (window.renderMathInElement && element) {
+		renderMathInElement(element, {
+			delimiters: [
+				{ left: '$$', right: '$$', display: true },
+				{ left: '$', right: '$', display: false },
+			],
+			throwOnError: false,
+		});
+	}
+}
+
+function normalizeImgData(imgData) {
+	if (!imgData) return null;
+	if (typeof imgData === 'string')
+		return { src: imgData, width: null, height: null, natW: null, natH: null };
+	if (!imgData.src) return null;
+	return {
+		src: imgData.src,
+		width: imgData.width || null,
+		height: imgData.height || null,
+		natW: imgData.natW || imgData.width || null,
+		natH: imgData.natH || imgData.height || null,
+	};
+}
+
+function fileToCompressedDataURL(file, callback, maxDim = 900, quality = 0.82) {
+	if (!file || !file.type.startsWith('image/')) {
+		callback(null);
+		return;
+	}
+	const reader = new FileReader();
+	reader.onload = () => {
+		const img = new Image();
+		img.onload = () => {
+			let { width, height } = img;
+			if (width > maxDim || height > maxDim) {
+				const scale = maxDim / Math.max(width, height);
+				width = Math.round(width * scale);
+				height = Math.round(height * scale);
+			}
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+			const context = canvas.getContext('2d');
+			context.fillStyle = '#ffffff';
+			context.fillRect(0, 0, width, height);
+			context.drawImage(img, 0, 0, width, height);
+			callback(canvas.toDataURL('image/jpeg', quality), width, height);
+		};
+		img.onerror = () => callback(null);
+		img.src = reader.result;
+	};
+	reader.onerror = () => callback(null);
+	reader.readAsDataURL(file);
+}
+
+function renderImgUploadField(wrapId, imgData, onChange) {
+	const wrap = document.getElementById(wrapId);
+	if (!wrap) return;
+	const norm = normalizeImgData(imgData);
+
+	if (norm) {
+		wrap.innerHTML = `
+			<div class="img-upload-row">
+				<div class="img-preview-wrap">
+					<img src="${norm.src}" />
+					<button type="button" class="img-remove" id="${wrapId}Remove">
+						<i class="fa-solid fa-xmark"></i>
+					</button>
+				</div>
+				<div class="img-size-control">
+					<label class="img-size-label">
+						W
+						<input type="number" class="img-size-input" id="${wrapId}Width" data-dim="width"
+							min="10" max="4000" step="1" value="${norm.width || ''}" placeholder="auto" />
+					</label>
+					<label class="img-size-label">
+						H
+						<input type="number" class="img-size-input" id="${wrapId}Height" data-dim="height"
+							min="10" max="4000" step="1" value="${norm.height || ''}" placeholder="auto" />
+					</label>
+					<span class="img-size-unit">px</span>
+					<label class="img-lock-label">
+						<input type="checkbox" class="img-lock-ratio" id="${wrapId}Lock" checked />
+						lock ratio
+					</label>
+				</div>
+			</div>
+		`;
+		document.getElementById(`${wrapId}Remove`).onclick = () => onChange(null);
+
+		const widthInput = document.getElementById(`${wrapId}Width`);
+		const heightInput = document.getElementById(`${wrapId}Height`);
+		const lockBox = document.getElementById(`${wrapId}Lock`);
+		const natW = norm.natW;
+		const natH = norm.natH;
+
+		widthInput.addEventListener('input', () => {
+			if (!lockBox.checked || !natW || !natH) return;
+			const w = parseInt(widthInput.value, 10);
+			if (w > 0) heightInput.value = Math.round((w * natH) / natW);
+		});
+		heightInput.addEventListener('input', () => {
+			if (!lockBox.checked || !natW || !natH) return;
+			const h = parseInt(heightInput.value, 10);
+			if (h > 0) widthInput.value = Math.round((h * natW) / natH);
+		});
+
+		const commit = () => {
+			const w = parseInt(widthInput.value, 10);
+			const h = parseInt(heightInput.value, 10);
+			onChange({
+				src: norm.src,
+				width: w > 0 ? w : null,
+				height: h > 0 ? h : null,
+				natW,
+				natH,
+			});
+		};
+		widthInput.addEventListener('change', commit);
+		heightInput.addEventListener('change', commit);
+	} else {
+		wrap.innerHTML = `
+			<div class="img-upload-row">
+				<input type="file" id="${wrapId}File" accept="image/*" />
+			</div>
+		`;
+		wrap.querySelector('input[type=file]').onchange = (event) => {
+			const file = event.target.files[0];
+			if (!file) return;
+			fileToCompressedDataURL(file, (result, width, height) => {
+				if (result) {
+					onChange({
+						src: result,
+						width: width || null,
+						height: height || null,
+						natW: width || null,
+						natH: height || null,
+					});
+				} else {
+					alert('Could not read that image file.');
+				}
+			});
+		};
+	}
+}
+
+const ladderImageFields = {
+	state: { q: null },
+	render() {
+		renderImgUploadField('newQuestionImgWrap', this.state.q, (val) => {
+			this.state.q = val;
+			this.render();
+		});
+	},
+	reset() {
+		this.state.q = null;
+		this.render();
+	},
+};
+
+function saveQuestions() {
+	try {
+		localStorage.setItem('mathClubPlinkoData', JSON.stringify(questions));
+	} catch (err) {}
+}
+
+function loadQuestions() {
+	try {
+		const saved = localStorage.getItem('mathClubPlinkoData');
+		if (saved) questions = JSON.parse(saved);
+	} catch (err) {}
+}
+
+function addCustomQuestion() {
+	const grade = Math.max(
+		9,
+		Math.min(12, parseInt(document.getElementById('newGrade').value) || 9),
+	);
+	const question = document.getElementById('newQuestion').value.trim();
+	const answer = document.getElementById('newAnswer').value.trim();
+	if (!question || !answer) {
+		alert('Enter at least a question and an answer.');
+		return;
+	}
+	questions.push({
+		grade,
+		q: question,
+		qImg: ladderImageFields.state.q || undefined,
+		a: answer,
+	});
+	document.getElementById('newGrade').value = '';
+	document.getElementById('newQuestion').value = '';
+	document.getElementById('newAnswer').value = '';
+	ladderImageFields.reset();
+	saveQuestions();
+	renderCustomLadderList();
+}
+
+function deleteCustomLadder(i) {
+	questions.splice(i, 1);
+	saveQuestions();
+	renderCustomLadderList();
+}
+
+function renderCustomLadderList() {
+	const list = document.getElementById('customLadderList');
+	if (!list) return;
+	if (questions.length === 0) {
+		list.innerHTML =
+			'<div style="color: var(--chalk-muted); font-size: 13px;">No custom questions yet.</div>';
+		return;
+	}
+	list.innerHTML = questions
+		.map((problem, i) => {
+			const img = normalizeImgData(problem.qImg);
+			const dims = img && img.width && img.height ? ` (${img.width}×${img.height}px)` : '';
+			return `
+		<div class="custom-list-item">
+			${img ? `<img class="thumb" src="${img.src}" />` : ''}
+			<div class="txt"><b>Grade ${problem.grade}</b> — ${escapeHtml(problem.q)}${img ? `<span class="dims">${dims}</span>` : ''}<br>${escapeHtml(problem.a)}</div>
+			<button class="btn small ghost" onclick="deleteCustomLadder(${i})">Delete</button>
+		</div>
+	`;
+		})
+		.join('');
+	typeset(list);
+}
+
+loadQuestions();
+ladderImageFields.render();
+renderCustomLadderList();
+
+// PLINKO GAME
+
 const canvas = document.getElementById('board');
 canvas.width = canvas.clientWidth;
 canvas.height = canvas.clientHeight;
