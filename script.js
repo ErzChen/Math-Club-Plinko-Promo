@@ -319,6 +319,53 @@ function deleteQuestion(i) {
 	renderQuestionList();
 }
 
+function exportQuestions() {
+    const blob = new Blob([JSON.stringify(questions, null, 2)], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = 'math-club-plinko-data.json';
+	a.click();
+	URL.revokeObjectURL(url);
+}
+
+function importQuestions(event) {
+	const file = event.target.files[0];
+	if (!file) return;
+
+	const reader = new FileReader();
+	reader.onload = function (e) {
+		try {
+			const imported = JSON.parse(e.target.result);
+			if (!Array.isArray(imported)) {
+				alert('Invalid file: expected a JSON array of questions.');
+				return;
+			}
+
+			const valid = imported.every(question => question && typeof question.q === 'string' && typeof question.a === 'string');
+			if (!valid) {
+				alert('Invalid file: some entries are missing a question or answer.');
+				return;
+			}
+
+			if (questions.length > 0) {
+				const merge = confirm('Merge with existing questions? Cancel to replace them instead.');
+				questions = merge ? questions.concat(imported) : imported;
+			} else {
+				questions = imported;
+			}
+
+			saveQuestions();
+			renderQuestionList();
+			alert(`Imported ${imported.length} question(s).`);
+		} catch (err) {
+			alert('Could not parse that file as JSON.');
+		}
+	};
+	reader.readAsText(file);
+	event.target.value = '';
+}
+
 function renderQuestionList() {
 	const list = document.getElementById('customQuestionsList');
 	if (!list) return;

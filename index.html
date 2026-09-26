@@ -92,6 +92,26 @@
 						<i class="fa-solid fa-xmark"></i>
 					</button>
 				</div>
+                <div>
+                    <button class="btn small" onclick="exportQuestions()">
+                        <i class="fa-solid fa-file-export"></i>
+                        Export Data
+                    </button>
+                    <button 
+                        class="btn small" 
+                        onclick="document.getElementById('importFileInput').click()"
+                    >
+                        <i class="fa-solid fa-file-import"></i>
+                        Import Data
+                    </button>
+                    <input 
+                        type="file" 
+                        id="importFileInput" 
+                        accept="application/json" 
+                        style="display: none;" 
+                        onchange="importQuestions(event)" 
+                    />
+                </div>
 				<div>
                     <div class="field-label">Grade Level (9 - 12)</div>
                     <input type="text" id="newGrade" placeholder="e.g. 10">
